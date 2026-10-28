@@ -35,17 +35,79 @@ export const create = async (req, res) => {
 };
 
 
+
+
 export const list = async (req, res) => {
   try {
-    const users = await listUsers();
-    return res.status(200).json(users);
+    const page = req.query.page === undefined
+      ? 1
+      : Number(req.query.page);
+
+    let limit = req.query.limit === undefined
+      ? 10
+      : Number(req.query.limit);
+
+    const sortBy = req.query.sortBy ?? 'createdAt';
+    const order = req.query.order ?? 'desc';
+
+    if (
+      !Number.isSafeInteger(page) ||
+      page <= 0 ||
+      !Number.isSafeInteger(limit) ||
+      limit <= 0
+    ) {
+      return res.status(400).json({
+        error: 'page and limit must be positive integers'
+      });
+    }
+    const allowedSortFields = ['createdAt', 'username', 'fullname'];
+
+    if (!allowedSortFields.includes(sortBy)) {
+      return res.status(400).json({
+        error: 'sortBy must be one of: createdAt, username, fullname'
+      });
+    }
+    if (!['asc', 'desc'].includes(order)) {
+      return res.status(400).json({
+        error: 'order must be asc or desc'
+      });
+    }
+    limit = Math.min(limit, 50);
+
+    
+const isPrivate = req.query.isPrivate;
+const search = req.query.search;
+
+if (
+  isPrivate !== undefined &&
+  !['true', 'false'].includes(isPrivate)
+) {
+  return res.status(400).json({
+    error: 'isPrivate must be true or false'
+  });
+}
+
+const filters = {
+  ...(isPrivate !== undefined && {
+    isPrivate: isPrivate === 'true'
+  }),
+  ...(search !== undefined && search.trim() !== '' && {
+    search: search.trim()
+  })
+};
+
+const result = await listUsers(page, limit, sortBy, order, filters);
+
+    return res.status(200).json(result);
   } catch (error) {
-    console.error(error);
+    console.error('GET /users error:', error);
     return res.status(500).json({
       error: 'Internal server error'
     });
   }
 };
+
+
 
 export const getOne = async (req, res) => {
   try {

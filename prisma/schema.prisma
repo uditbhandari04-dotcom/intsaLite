@@ -21,6 +21,8 @@ model User {
   createdAt DateTime @default(now())
 
   posts     Post[]
+
+  isPrivate Boolean @default(false)
 }
 model Post {
   id        Int      @id @default(autoincrement())
