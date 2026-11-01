@@ -14,6 +14,7 @@ export async function listUsers(page, limit, sortBy, order, filters = {}) {
     ...(filters.isPrivate !== undefined && {
       isPrivate: filters.isPrivate
     }),
+
     ...(filters.search && {
       OR: [
         {
@@ -29,6 +30,18 @@ export async function listUsers(page, limit, sortBy, order, filters = {}) {
           }
         }
       ]
+    }),
+
+    ...(filters.hasPosts === true && {
+      posts: {
+        some: {}
+      }
+    }),
+
+    ...(filters.hasPosts === false && {
+      posts: {
+        none: {}
+      }
     })
   };
 
@@ -55,13 +68,110 @@ export async function listUsers(page, limit, sortBy, order, filters = {}) {
   };
 }
 
+export async function getUserPosts(id, page, limit) {
+  const skip = (page - 1) * limit;
+
+  const [posts, total] = await prisma.$transaction([
+    prisma.post.findMany({
+      where: {
+        authorId: id
+      },
+      skip,
+      take: limit,
+      orderBy: {
+        createdAt: 'desc'
+      },
+      include: {
+        _count: {
+          select: {
+            likes: true
+          }
+        }
+      }
+    }),
+
+    prisma.post.count({
+      where: {
+        authorId: id
+      }
+    })
+  ]);
+
+  return {
+    data: posts,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
+}
+
+export async function getUserLikedPosts(id, page, limit) {
+  const skip = (page - 1) * limit;
+
+  const where = {
+    likes: {
+      some: {
+        userId: id
+      }
+    }
+  };
+
+  const [posts, total] = await prisma.$transaction([
+    prisma.post.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: {
+        createdAt: 'desc'
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            fullname: true
+          }
+        },
+        _count: {
+          select: {
+            likes: true
+          }
+        }
+      }
+    }),
+
+    prisma.post.count({ where })
+  ]);
+
+  return {
+    data: posts,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
+}
+
 
 
 
 
 export async function getUserById(id) {
   return await prisma.user.findUnique({
-    where: { id }
+    where: { id },
+    include: {
+      _count: {
+        select: {
+          posts: true,
+          likes: true
+        }
+      }
+    }
   });
 }
 

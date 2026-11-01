@@ -2,23 +2,25 @@ import {
   createPost,
   listPosts,
   getPostById,
+  getPostLikes,
   updatePost,
   deletePost
 } from '../services/posts.service.js';
+import { getPagination } from '../utils/pagination.js';
 
 export const create = async (req, res) => {
   try {
-    const { imageUrl, caption, location, userId } = req.body;
+    const { imageUrl, caption, location, authorId } = req.body;
 
-    if (!imageUrl) {
+    if (
+      !imageUrl ||
+      authorId === undefined ||
+      authorId === null ||
+      authorId === '' ||
+      !Number.isInteger(Number(authorId))
+    ) {
       return res.status(400).json({
-        error: 'imageUrl is required'
-      });
-    }
-
-    if (userId === undefined || !Number.isInteger(Number(userId))) {
-      return res.status(400).json({
-        error: 'userId is required and must be a valid integer'
+        error: 'imageUrl and authorId are required'
       });
     }
 
@@ -26,20 +28,20 @@ export const create = async (req, res) => {
       imageUrl,
       caption,
       location,
-      user: {
-        connect: { id: Number(userId) }
-      }
+      authorId: Number(authorId)
     });
 
-    return res.status(201).json(post);
-  } catch (error) {
-    if (error.code === 'P2025') {
+    if (!post) {
       return res.status(404).json({
         error: 'User not found'
       });
     }
 
+    return res.status(201).json(post);
+
+  } catch (error) {
     console.error('POST /posts error:', error);
+
     return res.status(500).json({
       error: 'Internal server error'
     });
@@ -58,43 +60,52 @@ export const create = async (req, res) => {
 
 export const list = async (req, res) => {
   try {
-    const page = req.query.page === undefined
-      ? 1
-      : Number(req.query.page);
+    // const page = req.query.page === undefined
+    //   ? 1
+    //   : Number(req.query.page);
 
-    let limit = req.query.limit === undefined
-      ? 10
-      : Number(req.query.limit);
+    // let limit = req.query.limit === undefined
+    //   ? 10
+    //   : Number(req.query.limit);
 
-    const sortBy = req.query.sortBy ?? 'createdAt';
-    const order = req.query.order ?? 'desc';
+    // const sortBy = req.query.sortBy ?? 'createdAt';
+    // const order = req.query.order ?? 'desc';
 
-    if (
-      !Number.isSafeInteger(page) ||
-      page <= 0 ||
-      !Number.isSafeInteger(limit) ||
-      limit <= 0
-    ) {
-      return res.status(400).json({
-        error: 'page and limit must be positive integers'
-      });
-    }
+    // if (
+    //   !Number.isSafeInteger(page) ||
+    //   page <= 0 ||
+    //   !Number.isSafeInteger(limit) ||
+    //   limit <= 0
+    // ) {
+    //   return res.status(400).json({
+    //     error: 'page and limit must be positive integers'
+    //   });
+    // }
 
-    const allowedSortFields = ['createdAt', 'updatedAt'];
+    // const allowedSortFields = ['createdAt', 'updatedAt', 'likes'];
 
-    if (!allowedSortFields.includes(sortBy)) {
-      return res.status(400).json({
-        error: 'sortBy must be one of: createdAt, updatedAt'
-      });
-    }
+    // if (!allowedSortFields.includes(sortBy)) {
+    //   return res.status(400).json({
+    //     error: 'sortBy must be one of: createdAt, updatedAt, likes'
+    //   });
+    // }
 
-    if (!['asc', 'desc'].includes(order)) {
-      return res.status(400).json({
-        error: 'order must be asc or desc'
-      });
-    }
+    // if (!['asc', 'desc'].includes(order)) {
+    //   return res.status(400).json({
+    //     error: 'order must be asc or desc'
+    //   });
+    // }
 
-    limit = Math.min(limit, 50);
+    // limit = Math.min(limit, 50);
+    const pagination = getPagination(req.query);
+
+if (pagination.error) {
+  return res.status(400).json({
+    error: pagination.error
+  });
+}
+
+const { page, limit } = pagination;
 
 
 const location = req.query.location;
@@ -165,6 +176,31 @@ export const getOne = async (req, res) => {
     return res.status(200).json(post);
   } catch (error) {
     console.error('GET /posts/:id error:', error);
+    return res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+};
+
+export const getLikes = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    const post = await getPostById(id);
+
+    if (!post) {
+      return res.status(404).json({
+        error: 'Post not found'
+      });
+    }
+
+    const users = await getPostLikes(id);
+
+    return res.status(200).json(users);
+
+  } catch (error) {
+    console.error('GET /posts/:id/likes error:', error);
+
     return res.status(500).json({
       error: 'Internal server error'
     });

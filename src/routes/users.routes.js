@@ -3,6 +3,8 @@ import {
   create,
   list,
   getOne,
+  getUserPostsController,
+  getUserLikedPostsController,
   update,
   remove
 } from '../controllers/users.controller.js';
@@ -11,12 +13,15 @@ const router = express.Router();
 
 router.post('/', create);
 router.get('/', list);
+
+router.get('/:id/posts', getUserPostsController);
+router.get('/:id/liked-posts', getUserLikedPostsController);
+
 router.get('/:id', getOne);
 router.patch('/:id', update);
 router.delete('/:id', remove);
 
 export default router;
-
 
 // import express from 'express';
 // import prisma from '../db.js';
